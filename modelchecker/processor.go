@@ -1183,8 +1183,6 @@ func (l *Link) HasFailedInvariants() bool {
 func NewNode(process *Process) *Node {
 	return &Node{
 		Process:     process,
-		Inbound:     make([]*Link, 0, 10),
-		Outbound:    make([]*Link, 0, 10),
 		actionDepth: 0,
 		forkDepth:   0,
 		stacktrace:  captureStackTrace(),
@@ -1298,8 +1296,7 @@ func (n *Node) ForkForAction(process *Process, role *lib.Role, action *ast.Actio
 	// that will add to the appropriate outbound link to the parent node.
 	forkNode := &Node{
 		Process:     process.Fork(),
-		Inbound:     make([]*Link, 0, 10),
-		Outbound:    make([]*Link, 0, 10),
+		Inbound:     make([]*Link, 0, 1),
 		actionDepth: n.actionDepth + 1,
 		forkDepth:   n.forkDepth + 1,
 		stacktrace:  captureStackTrace(),
@@ -1314,8 +1311,7 @@ func (n *Node) ForkForAlternatePaths(process *Process, name string) *Node {
 
 	forkNode := &Node{
 		Process:     process,
-		Inbound:     make([]*Link, 0, 10),
-		Outbound:    make([]*Link, 0, 10),
+		Inbound:     make([]*Link, 0, 1),
 		actionDepth: n.actionDepth,
 		forkDepth:   n.forkDepth + 1,
 		stacktrace:  captureStackTrace(),

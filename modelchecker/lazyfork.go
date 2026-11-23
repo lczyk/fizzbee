@@ -53,8 +53,7 @@ func (n *Node) newLazyActionNode(parent *Process, role *lib.Role, roleIndex int,
 		actionName = role.RefStringShort() + "." + actionName
 	}
 	forkNode := &Node{
-		Inbound:     make([]*Link, 0, 10),
-		Outbound:    make([]*Link, 0, 10),
+		Inbound:     make([]*Link, 0, 1),
 		actionDepth: n.actionDepth + 1,
 		forkDepth:   n.forkDepth + 1,
 		stacktrace:  captureStackTrace(),
