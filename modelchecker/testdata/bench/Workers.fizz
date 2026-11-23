@@ -1,0 +1,53 @@
+# Benchmark spec: symmetric roles handing tasks around.
+# Exercises the symmetry permutation path of state dedup: role ids live in
+# role fields, a set, a dict's keys and a list.
+
+---
+deadlock_detection: false
+liveness: "false"
+---
+
+NUM_WORKERS = 4
+NUM_TASKS = 4
+
+symmetric role Worker:
+    action Init:
+        self.task = None
+        self.done = 0
+
+    atomic action Take:
+        require self.task == None
+        require len(pending) > 0
+        self.task = pending.pop()
+        owners[self.__id__] = self.task
+        busy.add(self.__id__)
+
+    atomic action Finish:
+        require self.task != None
+        finished.append(self.task)
+        self.task = None
+        self.done = self.done + 1
+        owners.pop(self.__id__)
+        busy.remove(self.__id__)
+
+    atomic action Drop:
+        require self.task != None
+        pending.append(self.task)
+        self.task = None
+        owners.pop(self.__id__)
+        busy.remove(self.__id__)
+
+action Init:
+    workers = bag()
+    for i in range(NUM_WORKERS):
+        workers.add(Worker())
+    pending = [t for t in range(NUM_TASKS)]
+    finished = []
+    owners = {}
+    busy = set()
+
+always assertion OwnersMatchBusy:
+    return len(owners) == len(busy)
+
+always assertion NoTaskLost:
+    return len(pending) + len(finished) + len(owners) == NUM_TASKS

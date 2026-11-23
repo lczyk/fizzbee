@@ -1,0 +1,1154 @@
+{
+  "sourceInfo": {
+    "fileName": "Containers.fizz",
+    "start": {
+      "line": 11,
+      "column": 1
+    },
+    "end": {
+      "line": 48
+    }
+  },
+  "invariants": [
+    {
+      "sourceInfo": {
+        "start": {
+          "line": 42,
+          "column": 1
+        },
+        "end": {
+          "line": 45
+        }
+      },
+      "name": "Bounded",
+      "temporalOperators": [
+        "always"
+      ],
+      "block": {
+        "sourceInfo": {
+          "start": {
+            "line": 43,
+            "column": 5
+          },
+          "end": {
+            "line": 45
+          }
+        },
+        "flow": "FLOW_ATOMIC",
+        "stmts": [
+          {
+            "sourceInfo": {
+              "start": {
+                "line": 43,
+                "column": 5
+              },
+              "end": {
+                "line": 45
+              }
+            },
+            "returnStmt": {
+              "sourceInfo": {
+                "start": {
+                  "line": 43,
+                  "column": 5
+                },
+                "end": {
+                  "line": 43,
+                  "column": 57
+                }
+              },
+              "pyExpr": "all([len(queues[k]) <= MAX_LEN for k in KEYS])",
+              "expr": {
+                "sourceInfo": {
+                  "start": {
+                    "line": 43,
+                    "column": 12
+                  },
+                  "end": {
+                    "line": 43,
+                    "column": 57
+                  }
+                },
+                "pyExpr": "all([len(queues[k]) <= MAX_LEN for k in KEYS])"
+              }
+            }
+          }
+        ]
+      },
+      "pyCode": "def Bounded():\n    return all([len(queues[k]) <= MAX_LEN for k in KEYS])\n\n"
+    },
+    {
+      "sourceInfo": {
+        "start": {
+          "line": 45,
+          "column": 1
+        },
+        "end": {
+          "line": 48
+        }
+      },
+      "name": "CountsAgree",
+      "temporalOperators": [
+        "always"
+      ],
+      "block": {
+        "sourceInfo": {
+          "start": {
+            "line": 46,
+            "column": 5
+          },
+          "end": {
+            "line": 48
+          }
+        },
+        "flow": "FLOW_ATOMIC",
+        "stmts": [
+          {
+            "sourceInfo": {
+              "start": {
+                "line": 46,
+                "column": 5
+              },
+              "end": {
+                "line": 47,
+                "column": 4
+              }
+            },
+            "callStmt": {
+              "sourceInfo": {
+                "start": {
+                  "line": 46,
+                  "column": 5
+                },
+                "end": {
+                  "line": 46,
+                  "column": 48
+                }
+              },
+              "vars": [
+                "queued"
+              ],
+              "name": "sum",
+              "args": [
+                {
+                  "sourceInfo": {
+                    "start": {
+                      "line": 46,
+                      "column": 18
+                    },
+                    "end": {
+                      "line": 46,
+                      "column": 47
+                    }
+                  },
+                  "pyExpr": "[len(queues[k]) for k in KEYS]",
+                  "expr": {
+                    "sourceInfo": {
+                      "start": {
+                        "line": 46,
+                        "column": 18
+                      },
+                      "end": {
+                        "line": 46,
+                        "column": 47
+                      }
+                    },
+                    "pyExpr": "[len(queues[k]) for k in KEYS]"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "sourceInfo": {
+              "start": {
+                "line": 47,
+                "column": 5
+              },
+              "end": {
+                "line": 48
+              }
+            },
+            "returnStmt": {
+              "sourceInfo": {
+                "start": {
+                  "line": 47,
+                  "column": 5
+                },
+                "end": {
+                  "line": 47,
+                  "column": 48
+                }
+              },
+              "pyExpr": "stats.pushed - stats.popped == queued",
+              "expr": {
+                "sourceInfo": {
+                  "start": {
+                    "line": 47,
+                    "column": 12
+                  },
+                  "end": {
+                    "line": 47,
+                    "column": 48
+                  }
+                },
+                "pyExpr": "stats.pushed - stats.popped == queued"
+              }
+            }
+          }
+        ]
+      },
+      "pyCode": "def CountsAgree():\n    queued = sum([len(queues[k]) for k in KEYS])\n    return stats.pushed - stats.popped == queued\n"
+    }
+  ],
+  "actions": [
+    {
+      "sourceInfo": {
+        "start": {
+          "line": 14,
+          "column": 1
+        },
+        "end": {
+          "line": 20
+        }
+      },
+      "name": "Init",
+      "flow": "FLOW_ATOMIC",
+      "fairness": {
+        "level": "FAIRNESS_LEVEL_STRONG"
+      },
+      "block": {
+        "sourceInfo": {
+          "start": {
+            "line": 15,
+            "column": 5
+          },
+          "end": {
+            "line": 20
+          }
+        },
+        "flow": "FLOW_ATOMIC",
+        "stmts": [
+          {
+            "sourceInfo": {
+              "start": {
+                "line": 15,
+                "column": 5
+              },
+              "end": {
+                "line": 16,
+                "column": 4
+              }
+            },
+            "pyStmt": {
+              "sourceInfo": {
+                "start": {
+                  "line": 15,
+                  "column": 5
+                },
+                "end": {
+                  "line": 15,
+                  "column": 34
+                }
+              },
+              "code": "queues = {k: [] for k in KEYS}"
+            }
+          },
+          {
+            "sourceInfo": {
+              "start": {
+                "line": 16,
+                "column": 5
+              },
+              "end": {
+                "line": 17,
+                "column": 4
+              }
+            },
+            "callStmt": {
+              "sourceInfo": {
+                "start": {
+                  "line": 16,
+                  "column": 5
+                },
+                "end": {
+                  "line": 16,
+                  "column": 16
+                }
+              },
+              "vars": [
+                "seen"
+              ],
+              "name": "set"
+            }
+          },
+          {
+            "sourceInfo": {
+              "start": {
+                "line": 17,
+                "column": 5
+              },
+              "end": {
+                "line": 18,
+                "column": 4
+              }
+            },
+            "pyStmt": {
+              "sourceInfo": {
+                "start": {
+                  "line": 17,
+                  "column": 5
+                },
+                "end": {
+                  "line": 17,
+                  "column": 12
+                }
+              },
+              "code": "log = []"
+            }
+          },
+          {
+            "sourceInfo": {
+              "start": {
+                "line": 18,
+                "column": 5
+              },
+              "end": {
+                "line": 20
+              }
+            },
+            "callStmt": {
+              "sourceInfo": {
+                "start": {
+                  "line": 18,
+                  "column": 5
+                },
+                "end": {
+                  "line": 18,
+                  "column": 49
+                }
+              },
+              "vars": [
+                "stats"
+              ],
+              "name": "record",
+              "args": [
+                {
+                  "sourceInfo": {
+                    "start": {
+                      "line": 18,
+                      "column": 20
+                    },
+                    "end": {
+                      "line": 18,
+                      "column": 27
+                    }
+                  },
+                  "pyExpr": "pushed=0",
+                  "expr": {
+                    "sourceInfo": {
+                      "start": {
+                        "line": 18,
+                        "column": 20
+                      },
+                      "end": {
+                        "line": 18,
+                        "column": 27
+                      }
+                    },
+                    "pyExpr": "pushed=0"
+                  }
+                },
+                {
+                  "sourceInfo": {
+                    "start": {
+                      "line": 18,
+                      "column": 30
+                    },
+                    "end": {
+                      "line": 18,
+                      "column": 37
+                    }
+                  },
+                  "pyExpr": "popped=0",
+                  "expr": {
+                    "sourceInfo": {
+                      "start": {
+                        "line": 18,
+                        "column": 30
+                      },
+                      "end": {
+                        "line": 18,
+                        "column": 37
+                      }
+                    },
+                    "pyExpr": "popped=0"
+                  }
+                },
+                {
+                  "sourceInfo": {
+                    "start": {
+                      "line": 18,
+                      "column": 40
+                    },
+                    "end": {
+                      "line": 18,
+                      "column": 48
+                    }
+                  },
+                  "pyExpr": "last=None",
+                  "expr": {
+                    "sourceInfo": {
+                      "start": {
+                        "line": 18,
+                        "column": 40
+                      },
+                      "end": {
+                        "line": 18,
+                        "column": 48
+                      }
+                    },
+                    "pyExpr": "last=None"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "sourceInfo": {
+        "start": {
+          "line": 20,
+          "column": 1
+        },
+        "end": {
+          "line": 29
+        }
+      },
+      "name": "Push",
+      "flow": "FLOW_ATOMIC",
+      "fairness": {
+        "level": "FAIRNESS_LEVEL_UNFAIR"
+      },
+      "block": {
+        "sourceInfo": {
+          "start": {
+            "line": 21,
+            "column": 5
+          },
+          "end": {
+            "line": 29
+          }
+        },
+        "flow": "FLOW_ATOMIC",
+        "stmts": [
+          {
+            "sourceInfo": {
+              "start": {
+                "line": 21,
+                "column": 5
+              },
+              "end": {
+                "line": 22,
+                "column": 4
+              }
+            },
+            "anyStmt": {
+              "sourceInfo": {
+                "start": {
+                  "line": 21,
+                  "column": 5
+                },
+                "end": {
+                  "line": 21,
+                  "column": 16
+                }
+              },
+              "loopVars": [
+                "k"
+              ],
+              "pyExpr": "KEYS",
+              "iterExpr": {
+                "sourceInfo": {
+                  "start": {
+                    "line": 21,
+                    "column": 13
+                  },
+                  "end": {
+                    "line": 21,
+                    "column": 16
+                  }
+                },
+                "pyExpr": "KEYS"
+              },
+              "targetKind": "ANY_TARGET_KIND_NAME",
+              "choiceVar": "k"
+            }
+          },
+          {
+            "sourceInfo": {
+              "start": {
+                "line": 22,
+                "column": 5
+              },
+              "end": {
+                "line": 23,
+                "column": 4
+              }
+            },
+            "requireStmt": {
+              "sourceInfo": {
+                "start": {
+                  "line": 22,
+                  "column": 5
+                },
+                "end": {
+                  "line": 22,
+                  "column": 36
+                }
+              },
+              "condition": "len(queues[k]) < MAX_LEN",
+              "conditionExpr": {
+                "sourceInfo": {
+                  "start": {
+                    "line": 22,
+                    "column": 13
+                  },
+                  "end": {
+                    "line": 22,
+                    "column": 36
+                  }
+                },
+                "pyExpr": "len(queues[k]) < MAX_LEN"
+              }
+            }
+          },
+          {
+            "sourceInfo": {
+              "start": {
+                "line": 23,
+                "column": 5
+              },
+              "end": {
+                "line": 24,
+                "column": 4
+              }
+            },
+            "anyStmt": {
+              "sourceInfo": {
+                "start": {
+                  "line": 23,
+                  "column": 5
+                },
+                "end": {
+                  "line": 23,
+                  "column": 18
+                }
+              },
+              "loopVars": [
+                "v"
+              ],
+              "pyExpr": "[0, 1]",
+              "iterExpr": {
+                "sourceInfo": {
+                  "start": {
+                    "line": 23,
+                    "column": 13
+                  },
+                  "end": {
+                    "line": 23,
+                    "column": 18
+                  }
+                },
+                "pyExpr": "[0, 1]"
+              },
+              "targetKind": "ANY_TARGET_KIND_NAME",
+              "choiceVar": "v"
+            }
+          },
+          {
+            "sourceInfo": {
+              "start": {
+                "line": 24,
+                "column": 5
+              },
+              "end": {
+                "line": 25,
+                "column": 4
+              }
+            },
+            "pyStmt": {
+              "sourceInfo": {
+                "start": {
+                  "line": 24,
+                  "column": 5
+                },
+                "end": {
+                  "line": 24,
+                  "column": 28
+                }
+              },
+              "code": "queues[k].append((k, v))"
+            }
+          },
+          {
+            "sourceInfo": {
+              "start": {
+                "line": 25,
+                "column": 5
+              },
+              "end": {
+                "line": 26,
+                "column": 4
+              }
+            },
+            "callStmt": {
+              "sourceInfo": {
+                "start": {
+                  "line": 25,
+                  "column": 5
+                },
+                "end": {
+                  "line": 25,
+                  "column": 20
+                }
+              },
+              "name": "add",
+              "args": [
+                {
+                  "sourceInfo": {
+                    "start": {
+                      "line": 25,
+                      "column": 14
+                    },
+                    "end": {
+                      "line": 25,
+                      "column": 19
+                    }
+                  },
+                  "pyExpr": "(k, v)",
+                  "expr": {
+                    "sourceInfo": {
+                      "start": {
+                        "line": 25,
+                        "column": 14
+                      },
+                      "end": {
+                        "line": 25,
+                        "column": 19
+                      }
+                    },
+                    "pyExpr": "(k, v)"
+                  }
+                }
+              ],
+              "receiver": "seen"
+            }
+          },
+          {
+            "sourceInfo": {
+              "start": {
+                "line": 26,
+                "column": 5
+              },
+              "end": {
+                "line": 27,
+                "column": 4
+              }
+            },
+            "pyStmt": {
+              "sourceInfo": {
+                "start": {
+                  "line": 26,
+                  "column": 5
+                },
+                "end": {
+                  "line": 26,
+                  "column": 35
+                }
+              },
+              "code": "stats.pushed = stats.pushed + 1"
+            }
+          },
+          {
+            "sourceInfo": {
+              "start": {
+                "line": 27,
+                "column": 5
+              },
+              "end": {
+                "line": 29
+              }
+            },
+            "pyStmt": {
+              "sourceInfo": {
+                "start": {
+                  "line": 27,
+                  "column": 5
+                },
+                "end": {
+                  "line": 27,
+                  "column": 18
+                }
+              },
+              "code": "stats.last = k"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "sourceInfo": {
+        "start": {
+          "line": 29,
+          "column": 1
+        },
+        "end": {
+          "line": 38
+        }
+      },
+      "name": "Pop",
+      "flow": "FLOW_ATOMIC",
+      "fairness": {
+        "level": "FAIRNESS_LEVEL_UNFAIR"
+      },
+      "block": {
+        "sourceInfo": {
+          "start": {
+            "line": 30,
+            "column": 5
+          },
+          "end": {
+            "line": 38
+          }
+        },
+        "flow": "FLOW_ATOMIC",
+        "stmts": [
+          {
+            "sourceInfo": {
+              "start": {
+                "line": 30,
+                "column": 5
+              },
+              "end": {
+                "line": 31,
+                "column": 4
+              }
+            },
+            "anyStmt": {
+              "sourceInfo": {
+                "start": {
+                  "line": 30,
+                  "column": 5
+                },
+                "end": {
+                  "line": 30,
+                  "column": 16
+                }
+              },
+              "loopVars": [
+                "k"
+              ],
+              "pyExpr": "KEYS",
+              "iterExpr": {
+                "sourceInfo": {
+                  "start": {
+                    "line": 30,
+                    "column": 13
+                  },
+                  "end": {
+                    "line": 30,
+                    "column": 16
+                  }
+                },
+                "pyExpr": "KEYS"
+              },
+              "targetKind": "ANY_TARGET_KIND_NAME",
+              "choiceVar": "k"
+            }
+          },
+          {
+            "sourceInfo": {
+              "start": {
+                "line": 31,
+                "column": 5
+              },
+              "end": {
+                "line": 32,
+                "column": 4
+              }
+            },
+            "requireStmt": {
+              "sourceInfo": {
+                "start": {
+                  "line": 31,
+                  "column": 5
+                },
+                "end": {
+                  "line": 31,
+                  "column": 30
+                }
+              },
+              "condition": "len(queues[k]) > 0",
+              "conditionExpr": {
+                "sourceInfo": {
+                  "start": {
+                    "line": 31,
+                    "column": 13
+                  },
+                  "end": {
+                    "line": 31,
+                    "column": 30
+                  }
+                },
+                "pyExpr": "len(queues[k]) > 0"
+              }
+            }
+          },
+          {
+            "sourceInfo": {
+              "start": {
+                "line": 32,
+                "column": 5
+              },
+              "end": {
+                "line": 33,
+                "column": 4
+              }
+            },
+            "pyStmt": {
+              "sourceInfo": {
+                "start": {
+                  "line": 32,
+                  "column": 5
+                },
+                "end": {
+                  "line": 32,
+                  "column": 27
+                }
+              },
+              "code": "item = queues[k].pop(0)"
+            }
+          },
+          {
+            "sourceInfo": {
+              "start": {
+                "line": 33,
+                "column": 5
+              },
+              "end": {
+                "line": 35,
+                "column": 4
+              }
+            },
+            "ifStmt": {
+              "sourceInfo": {
+                "start": {
+                  "line": 33,
+                  "column": 5
+                },
+                "end": {
+                  "line": 35,
+                  "column": 4
+                }
+              },
+              "branches": [
+                {
+                  "sourceInfo": {
+                    "start": {
+                      "line": 33,
+                      "column": 8
+                    },
+                    "end": {
+                      "line": 35,
+                      "column": 4
+                    }
+                  },
+                  "condition": "len(log) < 2",
+                  "block": {
+                    "sourceInfo": {
+                      "start": {
+                        "line": 34,
+                        "column": 9
+                      },
+                      "end": {
+                        "line": 35,
+                        "column": 4
+                      }
+                    },
+                    "stmts": [
+                      {
+                        "sourceInfo": {
+                          "start": {
+                            "line": 34,
+                            "column": 9
+                          },
+                          "end": {
+                            "line": 35,
+                            "column": 4
+                          }
+                        },
+                        "callStmt": {
+                          "sourceInfo": {
+                            "start": {
+                              "line": 34,
+                              "column": 9
+                            },
+                            "end": {
+                              "line": 34,
+                              "column": 24
+                            }
+                          },
+                          "name": "append",
+                          "args": [
+                            {
+                              "sourceInfo": {
+                                "start": {
+                                  "line": 34,
+                                  "column": 20
+                                },
+                                "end": {
+                                  "line": 34,
+                                  "column": 23
+                                }
+                              },
+                              "pyExpr": "item",
+                              "expr": {
+                                "sourceInfo": {
+                                  "start": {
+                                    "line": 34,
+                                    "column": 20
+                                  },
+                                  "end": {
+                                    "line": 34,
+                                    "column": 23
+                                  }
+                                },
+                                "pyExpr": "item"
+                              }
+                            }
+                          ],
+                          "receiver": "log"
+                        }
+                      }
+                    ]
+                  },
+                  "conditionExpr": {
+                    "sourceInfo": {
+                      "start": {
+                        "line": 33,
+                        "column": 8
+                      },
+                      "end": {
+                        "line": 33,
+                        "column": 19
+                      }
+                    },
+                    "pyExpr": "len(log) < 2"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "sourceInfo": {
+              "start": {
+                "line": 35,
+                "column": 5
+              },
+              "end": {
+                "line": 36,
+                "column": 4
+              }
+            },
+            "pyStmt": {
+              "sourceInfo": {
+                "start": {
+                  "line": 35,
+                  "column": 5
+                },
+                "end": {
+                  "line": 35,
+                  "column": 35
+                }
+              },
+              "code": "stats.popped = stats.popped + 1"
+            }
+          },
+          {
+            "sourceInfo": {
+              "start": {
+                "line": 36,
+                "column": 5
+              },
+              "end": {
+                "line": 38
+              }
+            },
+            "pyStmt": {
+              "sourceInfo": {
+                "start": {
+                  "line": 36,
+                  "column": 5
+                },
+                "end": {
+                  "line": 36,
+                  "column": 18
+                }
+              },
+              "code": "stats.last = k"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "sourceInfo": {
+        "start": {
+          "line": 38,
+          "column": 1
+        },
+        "end": {
+          "line": 42
+        }
+      },
+      "name": "Reset",
+      "flow": "FLOW_ATOMIC",
+      "fairness": {
+        "level": "FAIRNESS_LEVEL_UNFAIR"
+      },
+      "block": {
+        "sourceInfo": {
+          "start": {
+            "line": 39,
+            "column": 5
+          },
+          "end": {
+            "line": 42
+          }
+        },
+        "flow": "FLOW_ATOMIC",
+        "stmts": [
+          {
+            "sourceInfo": {
+              "start": {
+                "line": 39,
+                "column": 5
+              },
+              "end": {
+                "line": 40,
+                "column": 4
+              }
+            },
+            "requireStmt": {
+              "sourceInfo": {
+                "start": {
+                  "line": 39,
+                  "column": 5
+                },
+                "end": {
+                  "line": 39,
+                  "column": 25
+                }
+              },
+              "condition": "len(log) == 2",
+              "conditionExpr": {
+                "sourceInfo": {
+                  "start": {
+                    "line": 39,
+                    "column": 13
+                  },
+                  "end": {
+                    "line": 39,
+                    "column": 25
+                  }
+                },
+                "pyExpr": "len(log) == 2"
+              }
+            }
+          },
+          {
+            "sourceInfo": {
+              "start": {
+                "line": 40,
+                "column": 5
+              },
+              "end": {
+                "line": 42
+              }
+            },
+            "callStmt": {
+              "sourceInfo": {
+                "start": {
+                  "line": 40,
+                  "column": 5
+                },
+                "end": {
+                  "line": 40,
+                  "column": 15
+                }
+              },
+              "name": "clear",
+              "receiver": "log"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "stmts": [
+    {
+      "sourceInfo": {
+        "start": {
+          "line": 11,
+          "column": 1
+        },
+        "end": {
+          "line": 12
+        }
+      },
+      "pyStmt": {
+        "sourceInfo": {
+          "start": {
+            "line": 11,
+            "column": 1
+          },
+          "end": {
+            "line": 11,
+            "column": 22
+          }
+        },
+        "code": "KEYS = [\"a\", \"b\", \"c\"]"
+      }
+    },
+    {
+      "sourceInfo": {
+        "start": {
+          "line": 12,
+          "column": 1
+        },
+        "end": {
+          "line": 14
+        }
+      },
+      "pyStmt": {
+        "sourceInfo": {
+          "start": {
+            "line": 12,
+            "column": 1
+          },
+          "end": {
+            "line": 12,
+            "column": 11
+          }
+        },
+        "code": "MAX_LEN = 2"
+      }
+    }
+  ],
+  "frontMatter": {
+    "yaml": "\n\n\n\n\ndeadlock_detection: false\noptions:\n  max_actions: 5\n"
+  }
+}

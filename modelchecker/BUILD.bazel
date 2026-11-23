@@ -52,6 +52,7 @@ go_library(
 go_test(
     name = "modelchecker_test",
     srcs = [
+        "bench_test.go",
         "checker_test.go",
         "clone_segment_test.go",
         "clone_test.go",

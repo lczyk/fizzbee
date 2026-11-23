@@ -1,0 +1,47 @@
+# Benchmark spec: no roles, a heap of nested containers.
+# Exercises cloning and hashing of lists, dicts, sets, tuples and records,
+# and nondeterministic choice inside atomic actions.
+
+---
+deadlock_detection: false
+options:
+  max_actions: 5
+---
+
+KEYS = ["a", "b", "c"]
+MAX_LEN = 2
+
+action Init:
+    queues = {k: [] for k in KEYS}
+    seen = set()
+    log = []
+    stats = record(pushed=0, popped=0, last=None)
+
+atomic action Push:
+    k = any KEYS
+    require len(queues[k]) < MAX_LEN
+    v = any [0, 1]
+    queues[k].append((k, v))
+    seen.add((k, v))
+    stats.pushed = stats.pushed + 1
+    stats.last = k
+
+atomic action Pop:
+    k = any KEYS
+    require len(queues[k]) > 0
+    item = queues[k].pop(0)
+    if len(log) < 2:
+        log.append(item)
+    stats.popped = stats.popped + 1
+    stats.last = k
+
+atomic action Reset:
+    require len(log) == 2
+    log.clear()
+
+always assertion Bounded:
+    return all([len(queues[k]) <= MAX_LEN for k in KEYS])
+
+always assertion CountsAgree:
+    queued = sum([len(queues[k]) for k in KEYS])
+    return stats.pushed - stats.popped == queued
