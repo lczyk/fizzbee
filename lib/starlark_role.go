@@ -170,7 +170,7 @@ func (r *Role) RefString() string {
 }
 
 func GenerateRefString(name string, ref int64) string {
-	return fmt.Sprintf("role %s#%d", name, ref)
+	return "role " + name + "#" + strconv.FormatInt(ref, 10)
 }
 
 // SameRef reports whether r and other are the same role instance: what
@@ -180,7 +180,7 @@ func (r *Role) SameRef(other *Role) bool {
 }
 
 func (r *Role) RefStringShort() string {
-	return fmt.Sprintf("%s#%d", r.Name, r.GetRef())
+	return r.Name + "#" + strconv.FormatInt(r.GetRef(), 10)
 }
 
 func (r *Role) Type() string {

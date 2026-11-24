@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"go.starlark.net/lib/math"
@@ -1297,15 +1298,15 @@ func modelValueEqual(s *ModelValue, y *ModelValue) bool {
 }
 
 func (m *ModelValue) String() string {
-	return fmt.Sprintf("%s%d", m.prefix, m.id)
+	return m.prefix + strconv.FormatInt(m.id, 10)
 }
 
 func (m *ModelValue) FullString() string {
-	return fmt.Sprintf("%s%d", m.prefix, m.id)
+	return m.prefix + strconv.FormatInt(m.id, 10)
 }
 
 func (m *ModelValue) ShortString() string {
-	return fmt.Sprintf("%s%d", m.prefix, m.id)
+	return m.prefix + strconv.FormatInt(m.id, 10)
 }
 
 func (m *ModelValue) MarshalJSON() ([]byte, error) {
