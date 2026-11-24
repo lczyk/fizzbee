@@ -391,6 +391,17 @@ func (e *StateEncoder) writeQuoted(s string) {
 	e.WriteBytes(b)
 }
 
+// WriteRolesSorted writes each role as WriteRole does, in the order of their
+// encodings instead of the order of the slice.
+func (e *StateEncoder) WriteRolesSorted(roles []*Role) {
+	e.sortedEntries(len(roles), func(emit func()) {
+		for _, r := range roles {
+			e.WriteRole(r)
+			emit()
+		}
+	})
+}
+
 // WriteRole writes a role's full state (name, ref, params, fields), the
 // counterpart of Role.MarshalJSON used by the process hash.
 func (e *StateEncoder) WriteRole(r *Role) {

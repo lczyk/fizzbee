@@ -1,6 +1,7 @@
 package modelchecker
 
 import (
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -256,4 +257,21 @@ func TestNoSymmetryDedupInvariants(t *testing.T) {
 
 	nodes, _, _, _ := traverseBFS(root, 100)
 	assert.Equal(t, 9, len(nodes))
+}
+
+// Narrowing a nominal domain's permutations by signature must not change
+// which states are told apart: the Workers spec has to reach the same
+// number of states as with every permutation tried. Its initial state,
+// four identical workers, needs a single renaming instead of 24.
+func TestSymmetrySignaturesKeepStates(t *testing.T) {
+	defer silenceStdout(t)()
+	file, config := loadBenchSpec(t, "Workers")
+	narrowed := runBenchSpec(t, file, config, benchModes[1])
+	_, _, _, renamings := getSymmetryPermutations(narrowed.Init.Process)
+	assert.Equal(t, 1, renamings)
+
+	defer func(from int) { pruneSymmetryFrom = from }(pruneSymmetryFrom)
+	pruneSymmetryFrom = math.MaxInt
+	all := runBenchSpec(t, file, config, benchModes[1])
+	assert.Equal(t, len(all.visited), len(narrowed.visited))
 }

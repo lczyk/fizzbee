@@ -239,6 +239,10 @@ type Process struct {
 	// assertionBindings holds, for each assertion instance a `for` header
 	// expanded to, the values its clause names are bound to.
 	assertionBindings map[string]starlark.StringDict
+
+	// hashRolesUnordered makes HashCode write the roles as a set. Only set
+	// while a symmetry signature is computed; see symmetrySignatures.
+	hashRolesUnordered bool
 }
 
 func NewProcess(name string, files []*ast.File, parent *Process) *Process {
@@ -3130,18 +3134,9 @@ func (p *Processor) attachCrashFork(node *Node, crashFork *Process) {
 
 func (p *Process) getSymmetryTranslations() []string {
 	//fmt.Println("\nCalculating symmetry translations for process:", p.Name)
-	p2, refs, permMap, count := getSymmetryPermutations(p)
+	p2, symVals, permMap, count := getSymmetryPermutations(p)
 	//fmt.Println("Symmetry permutations count:", count, permMap)
 	//fmt.Println("Permutation map:", permMap)
-	// Every symmetric value of the clone, each pointer once.
-	var symVals []*lib.SymmetricValue
-	seen := make(map[*lib.SymmetricValue]bool)
-	for _, val := range refs {
-		if sv, ok := val.(*lib.SymmetricValue); ok && !seen[sv] {
-			seen[sv] = true
-			symVals = append(symVals, sv)
-		}
-	}
 	origIds := make([]int64, len(symVals))
 	hashes := make([]string, count)
 	for i := 0; i < count; i++ {
@@ -3300,7 +3295,14 @@ func (p *Process) symmetricHashWithoutClone(symVals []*lib.SymmetricValue, origI
 		newRef := perm[alt].GetId()
 		refMappings[prefix][oldRef] = newRef
 	}
+	return p.hashRenamed(symVals, origIds, refMappings, false)
+}
 
+// hashRenamed hashes p with the symmetric values renamed as refMappings says
+// (prefix -> old id -> new id). The values are renamed in place and put
+// back. With unorderedRoles the roles are hashed as a set instead of in
+// order of their ids, for a renaming that gives several roles the same id.
+func (p *Process) hashRenamed(symVals []*lib.SymmetricValue, origIds []int64, refMappings map[string]map[int64]int64, unorderedRoles bool) string {
 	// 2. Rename every symmetric value that has a mapping, keeping its id to
 	// put back later.
 	for i, sv := range symVals {
@@ -3342,18 +3344,22 @@ func (p *Process) symmetricHashWithoutClone(symVals []*lib.SymmetricValue, origI
 	// We sort by Name then Ref.
 	origRoles := make([]*lib.Role, len(p.Roles))
 	copy(origRoles, p.Roles)
-	sort.Slice(p.Roles, func(i, j int) bool {
-		if p.Roles[i].Name != p.Roles[j].Name {
-			return p.Roles[i].Name < p.Roles[j].Name
-		}
-		return p.Roles[i].GetRef() < p.Roles[j].GetRef()
-	})
+	if !unorderedRoles {
+		sort.Slice(p.Roles, func(i, j int) bool {
+			if p.Roles[i].Name != p.Roles[j].Name {
+				return p.Roles[i].Name < p.Roles[j].Name
+			}
+			return p.Roles[i].GetRef() < p.Roles[j].GetRef()
+		})
+	}
 
 	// 6. Compute Hash
 	p.CachedHashCode = ""
 	p.CachedThreadHashes = nil
 	p.Heap.CachedHashCode = ""
+	p.hashRolesUnordered = unorderedRoles
 	hash1 := p.HashCode()
+	p.hashRolesUnordered = false
 
 	// 7. Restore Everything
 	copy(p.Roles, origRoles)
@@ -3401,7 +3407,108 @@ func (p *Process) addChannelMessage(channel *lib.Channel, roleShortRef string, f
 	}
 }
 
-func getSymmetryPermutations(process *Process) (*Process, map[starlark.Value]starlark.Value, map[*lib.SymmetricValue][]*lib.SymmetricValue, int) {
+// pruneSymmetryFrom is the number of values of a nominal domain from which
+// their permutations are narrowed down by signature (see
+// nominalArrangements). Below it, hashing every permutation is cheaper than
+// the hashes the signatures take. A variable so that a test can turn the
+// narrowing off.
+var pruneSymmetryFrom = 4
+
+// nominalArrangements returns the ways of renaming the used values of
+// nominal domain d to its canonical values that the canonical hash has to
+// try: each a slice parallel to usedValues[d]. Trying every permutation
+// costs a hash of the state for each, and their number is the factorial of
+// the number of values.
+//
+// Instead, each value gets a signature: the hash of the state with that
+// value marked and every other nominal value made anonymous. A permutation
+// of the values permutes their signatures with them, so sorting the values
+// by signature orders them the same way in every state of an orbit, and
+// only values with equal signatures still have to be tried in every order.
+// A group of those whose neighbours can be swapped without changing the
+// state needs one order only: every order gives the same state.
+//
+// static holds the renaming of the domains that have one canonical form.
+func (p *Process) nominalArrangements(d int, usedValues, values [][]*lib.SymmetricValue, static map[string]map[int64]int64, symVals []*lib.SymmetricValue, origIds []int64) [][]*lib.SymmetricValue {
+	const marked, anonymous = -1, -2
+	used := usedValues[d]
+	prefix := used[0].GetPrefix()
+
+	renaming := make(map[string]map[int64]int64, len(static)+len(usedValues))
+	for name, mapping := range static {
+		renaming[name] = mapping
+	}
+	for _, domain := range usedValues {
+		mapping := make(map[int64]int64, len(domain))
+		for _, v := range domain {
+			mapping[v.GetId()] = anonymous
+		}
+		renaming[domain[0].GetPrefix()] = mapping
+	}
+	signatures := make([]string, len(used))
+	for i, v := range used {
+		renaming[prefix][v.GetId()] = marked
+		signatures[i] = p.hashRenamed(symVals, origIds, renaming, true)
+		renaming[prefix][v.GetId()] = anonymous
+	}
+
+	// order lists the used values by signature; equal ones stay in id order.
+	order := make([]int, len(used))
+	for i := range order {
+		order[i] = i
+	}
+	sort.SliceStable(order, func(a, b int) bool { return signatures[order[a]] < signatures[order[b]] })
+
+	// swapChanges reports whether swapping two used values changes the state.
+	var unchanged string
+	swapChanges := func(a, b int) bool {
+		delete(renaming, prefix)
+		for _, domain := range usedValues {
+			if domain[0].GetPrefix() != prefix {
+				delete(renaming, domain[0].GetPrefix())
+			}
+		}
+		if unchanged == "" {
+			unchanged = p.hashRenamed(symVals, origIds, renaming, false)
+		}
+		renaming[prefix] = map[int64]int64{used[a].GetId(): used[b].GetId(), used[b].GetId(): used[a].GetId()}
+		swapped := p.hashRenamed(symVals, origIds, renaming, false)
+		delete(renaming, prefix)
+		return swapped != unchanged
+	}
+
+	arrangements := [][]*lib.SymmetricValue{make([]*lib.SymmetricValue, len(used))}
+	for start := 0; start < len(order); {
+		end := start + 1
+		for end < len(order) && signatures[order[end]] == signatures[order[start]] {
+			end++
+		}
+		group := order[start:end]
+		slots := values[d][start:end]
+		orders := [][]*lib.SymmetricValue{slots}
+		for i := 1; i < len(group); i++ {
+			if swapChanges(group[i-1], group[i]) {
+				orders = lib.GeneratePermutations(slots)
+				break
+			}
+		}
+		next := make([][]*lib.SymmetricValue, 0, len(arrangements)*len(orders))
+		for _, arrangement := range arrangements {
+			for _, slotOrder := range orders {
+				extended := slices.Clone(arrangement)
+				for i, member := range group {
+					extended[member] = slotOrder[i]
+				}
+				next = append(next, extended)
+			}
+		}
+		arrangements = next
+		start = end
+	}
+	return arrangements
+}
+
+func getSymmetryPermutations(process *Process) (*Process, []*lib.SymmetricValue, map[*lib.SymmetricValue][]*lib.SymmetricValue, int) {
 	var values [][]*lib.SymmetricValue
 	var usedValues [][]*lib.SymmetricValue
 
@@ -3612,8 +3719,43 @@ func getSymmetryPermutations(process *Process) (*Process, map[starlark.Value]sta
 	// which extracts them from refs during the preliminary clone.
 	// No need for separate GetSymmetryRoles() call.
 
-	// Generate all permutations
-	permutations := lib.GenerateAllPermutations(values)
+	// Every symmetric value of the clone, each pointer once.
+	var symVals []*lib.SymmetricValue
+	seen := make(map[*lib.SymmetricValue]bool)
+	for _, val := range refs {
+		if sv, ok := val.(*lib.SymmetricValue); ok && !seen[sv] {
+			seen[sv] = true
+			symVals = append(symVals, sv)
+		}
+	}
+
+	// Generate the permutations of each nominal domain's values: all of
+	// them, or for a larger domain those its signatures leave. When any
+	// domain has more than one canonical form (rotational ties, reflection)
+	// the signatures are not the same across an orbit, so then every
+	// permutation of every domain is tried as before.
+	var static map[string]map[int64]int64
+	var origIds []int64
+	domainPermutations := make([][][]*lib.SymmetricValue, len(values))
+	for d := range values {
+		if len(values[d]) < pruneSymmetryFrom || len(rotationalExtraMappings) > 0 || p2 == nil {
+			domainPermutations[d] = lib.GeneratePermutations(values[d])
+			continue
+		}
+		if static == nil {
+			static = make(map[string]map[int64]int64)
+			for _, mapping := range postProcessingMappings {
+				ids := make(map[int64]int64, len(mapping.used))
+				for k, usedVal := range mapping.used {
+					ids[usedVal.GetId()] = mapping.canonical[k].GetId()
+				}
+				static[mapping.used[0].GetPrefix()] = ids
+			}
+			origIds = make([]int64, len(symVals))
+		}
+		domainPermutations[d] = p2.nominalArrangements(d, usedValues, values, static, symVals, origIds)
+	}
+	permutations := lib.CombinePermutations(domainPermutations)
 	v := make([][]*lib.SymmetricValue, len(permutations))
 	for i, permutation := range permutations {
 		v[i] = slices.Concat(permutation...)
@@ -3749,7 +3891,7 @@ func getSymmetryPermutations(process *Process) (*Process, map[starlark.Value]sta
 	if finalCount == 0 {
 		finalCount = len(v)
 	}
-	return p2, refs, permMap, finalCount
+	return p2, symVals, permMap, finalCount
 }
 
 func (p *Processor) processInit(node *Node) bool {

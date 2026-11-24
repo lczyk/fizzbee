@@ -200,8 +200,12 @@ func (p *Process) HashCode() string {
 	// role states. In value position a role is only its reference, so this
 	// is the one place the role's params and fields are hashed.
 	e.WriteUvarint(uint64(len(p.Roles)))
-	for _, role := range p.Roles {
-		e.WriteRole(role)
+	if p.hashRolesUnordered {
+		e.WriteRolesSorted(p.Roles)
+	} else {
+		for _, role := range p.Roles {
+			e.WriteRole(role)
+		}
 	}
 	// hash the heap variables as well
 	e.WriteString(p.Heap.HashCode())

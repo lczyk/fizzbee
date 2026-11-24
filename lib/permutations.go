@@ -50,16 +50,9 @@ func combinePermutations[T any](arrays [][][]T, index int, current [][]T, result
     }
 }
 
-// GenerateAllPermutations generates all permutations of each subarray and all combinations of these permutations.
-func GenerateAllPermutations[T any](arr [][]T) [][][]T {
-    // Generate permutations for each subarray.
-    var allPermutations [][][]T
-    for _, subarray := range arr {
-        permutations := GeneratePermutations(subarray)
-        allPermutations = append(allPermutations, permutations)
-    }
-
-    // Generate all combinations of the permutations.
+// CombinePermutations returns every way of picking one permutation of each
+// subarray from the permutations given for it.
+func CombinePermutations[T any](allPermutations [][][]T) [][][]T {
     var result [][][]T
     combinePermutations(allPermutations, 0, [][]T{}, &result)
     return result
