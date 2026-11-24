@@ -14,6 +14,11 @@ func deepCloneStarlarkValue(value starlark.Value, refs map[starlark.Value]starla
 }
 
 func deepCloneStarlarkValueWithPermutations(value starlark.Value, refs map[starlark.Value]starlark.Value, permutations map[*lib.SymmetricValue][]*lib.SymmetricValue, alt int) (starlark.Value, error) {
+	// Most values in a state are scalars, which are shared as they are.
+	switch value.(type) {
+	case starlark.NoneType, starlark.Bool, starlark.Int, starlark.Float, starlark.String, starlark.Bytes:
+		return value, nil
+	}
 	if refs == nil {
 		refs = make(map[starlark.Value]starlark.Value)
 	} else if reflect.TypeOf(value).Kind() != reflect.Ptr {
@@ -111,21 +116,19 @@ func deepCloneStarlarkValueWithPermutations(value starlark.Value, refs map[starl
 		refs[value] = newVal
 		return newVal, nil
 	case "list":
-		newVal := starlark.NewList(make([]starlark.Value, 0))
+		list := value.(*starlark.List)
+		newVal := starlark.NewList(make([]starlark.Value, 0, list.Len()))
 		refs[value] = newVal
-
-		// For lists, recursively clone each element
-		iterable := value.(starlark.Iterable)
-		newList, err := deepCloneIterableToList(iterable, refs, permutations, alt)
-		if err != nil {
-			return nil, err
-		}
-		for _, elem := range newList {
+		for i := 0; i < list.Len(); i++ {
+			elem, err := deepCloneStarlarkValueWithPermutations(list.Index(i), refs, permutations, alt)
+			if err != nil {
+				return nil, err
+			}
 			_ = newVal.Append(elem)
 		}
 		return newVal, nil
 	case "set":
-		newSet := starlark.NewSet(0)
+		newSet := starlark.NewSet(value.(*starlark.Set).Len())
 		refs[value] = newSet
 		// For sets, recursively clone each element
 		iterable := value.(starlark.Iterable)
@@ -141,16 +144,18 @@ func deepCloneStarlarkValueWithPermutations(value starlark.Value, refs map[starl
 		}
 		return newSet, nil
 	case "tuple":
-		newTuple := starlark.Tuple{}
 		// Tuple is a value type (not a pointer), so refs caching won't work
-		// For tuples, recursively clone each element
-		iterable := value.(starlark.Iterable)
-		newList, err := deepCloneIterableToList(iterable, refs, permutations, alt)
-		if err != nil {
-			return nil, err
+		tuple := value.(starlark.Tuple)
+		if isDeeplyImmutable(tuple) {
+			return tuple, nil
 		}
-		for _, v := range newList {
-			newTuple = append(newTuple, v)
+		newTuple := make(starlark.Tuple, len(tuple))
+		for i, elem := range tuple {
+			cloned, err := deepCloneStarlarkValueWithPermutations(elem, refs, permutations, alt)
+			if err != nil {
+				return nil, err
+			}
+			newTuple[i] = cloned
 		}
 		return newTuple, nil
 	case "dict":
@@ -353,7 +358,7 @@ func deepCloneStarlarkValueWithPermutations(value starlark.Value, refs map[starl
 func deepCloneStringDict(v *starlark.Dict, refs map[starlark.Value]starlark.Value,
 	src map[*lib.SymmetricValue][]*lib.SymmetricValue, alt int) (*starlark.Dict, error) {
 
-	newDict := &starlark.Dict{}
+	newDict := starlark.NewDict(v.Len())
 	refs[v] = newDict
 	for _, item := range v.Items() {
 		k, v := item[0], item[1]
@@ -372,6 +377,9 @@ func deepCloneStringDict(v *starlark.Dict, refs map[starlark.Value]starlark.Valu
 
 func deepCloneIterableToList(iterable starlark.Iterable, refs map[starlark.Value]starlark.Value, permutations map[*lib.SymmetricValue][]*lib.SymmetricValue, alt int) ([]starlark.Value, error) {
 	var newList []starlark.Value
+	if seq, ok := iterable.(starlark.Sequence); ok && seq.Len() > 0 {
+		newList = make([]starlark.Value, 0, seq.Len())
+	}
 	iter := iterable.Iterate()
 	defer iter.Done()
 	var x starlark.Value

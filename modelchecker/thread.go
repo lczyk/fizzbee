@@ -231,7 +231,7 @@ func CloneDict(oldDict starlark.StringDict, refs map[starlark.Value]starlark.Val
 // CopyDict copies values `from` to `to` overriding existing values. If the `to` is nil, creates a new dict.
 func CopyDict(from starlark.StringDict, to starlark.StringDict, refs map[starlark.Value]starlark.Value, permutations map[*lib.SymmetricValue][]*lib.SymmetricValue, alt int) starlark.StringDict {
 	if to == nil {
-		to = make(starlark.StringDict)
+		to = make(starlark.StringDict, len(from))
 	}
 	for k, v := range from {
 		if v.Type() == "builtin_function_or_method" || v.Type() == "module" || v.Type() == "failed_module" {
