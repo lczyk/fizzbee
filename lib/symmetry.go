@@ -153,13 +153,11 @@ type FizzCallFunc func(thread *starlark.Thread, recv *Role, name string, args st
 // FizzCallKey is the starlark Thread local holding a FizzCallFunc.
 const FizzCallKey = "fizz_call"
 
-// NewSymmetryContext creates a new symmetry context with the given scanner function
+// NewSymmetryContext creates a new symmetry context with the given scanner function.
+// One is made for every statement, and few statements touch a symmetry
+// domain, so its maps are only made when first written to.
 func NewSymmetryContext(scanner func() map[string][]int64) *SymmetryContext {
-	return &SymmetryContext{
-		Scanner:       scanner,
-		Cache:         make(map[string]map[int64]bool),
-		LastAllocated: make(map[string]int64),
-	}
+	return &SymmetryContext{Scanner: scanner}
 }
 
 // NewSymmetryContextWithLastAllocated creates a new symmetry context with pre-populated LastAllocated state.
@@ -170,7 +168,6 @@ func NewSymmetryContextWithLastAllocated(scanner func() map[string][]int64, last
 	}
 	return &SymmetryContext{
 		Scanner:       scanner,
-		Cache:         make(map[string]map[int64]bool),
 		LastAllocated: la,
 	}
 }
@@ -179,6 +176,9 @@ func NewSymmetryContextWithLastAllocated(scanner func() map[string][]int64, last
 func (ctx *SymmetryContext) ensureLoaded() {
 	if ctx.initialized {
 		return
+	}
+	if ctx.Cache == nil {
+		ctx.Cache = make(map[string]map[int64]bool)
 	}
 	// Fetch baseline state from the process
 	allUsed := ctx.Scanner()
@@ -710,6 +710,9 @@ func (d *SymmetryDomain) fresh(thread *starlark.Thread, _ *starlark.Builtin, arg
 			return nil, &DisableTransitionError{
 				Message: fmt.Sprintf("symmetry limit reached for domain %q (limit %d)", d.Name, d.Limit),
 			}
+		}
+		if ctx.LastAllocated == nil {
+			ctx.LastAllocated = make(map[string]int64)
 		}
 		ctx.LastAllocated[d.Name] = nextID
 	} else if d.Kind == SymmetryKindOrdinal {
