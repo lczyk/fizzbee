@@ -421,29 +421,6 @@ func (p *Process) cloneAndGetSymmetricValuePointers() (*Process, map[starlark.Va
 	refs := make(map[starlark.Value]starlark.Value)
 	p2 := p.CloneWithRefs(nil, 0, refs)
 
-	// Count total SymmetricValue pointers vs unique (prefix, id) pairs
-	totalSVPointers := 0
-	totalRolePointers := 0
-	uniquePairs := make(map[string]bool)
-	rolesByName := make(map[string]int)
-	for _, val := range refs {
-		if sv, ok := val.(*lib.SymmetricValue); ok {
-			totalSVPointers++
-			key := fmt.Sprintf("%s:%d", sv.GetPrefix(), sv.GetId())
-			uniquePairs[key] = true
-		}
-		if role, ok := val.(*lib.Role); ok {
-			totalRolePointers++
-			rolesByName[role.Name]++
-		}
-	}
-	if totalSVPointers != len(uniquePairs) {
-		// fmt.Printf("DEBUG: Found %d SymmetricValue pointers but only %d unique (prefix,id) pairs\n", totalSVPointers, len(uniquePairs))
-	}
-	if totalRolePointers > 0 {
-		// fmt.Printf("DEBUG: Found %d Role pointers: %v\n", totalRolePointers, rolesByName)
-	}
-
 	// Extract SymmetricValues from refs - collect ALL pointers, not just unique (prefix, id)
 	// Group by (prefix, id) to track multiple pointers with same logical value
 	type svKey struct {

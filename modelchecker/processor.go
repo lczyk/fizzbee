@@ -3133,9 +3133,19 @@ func (p *Process) getSymmetryTranslations() []string {
 	p2, refs, permMap, count := getSymmetryPermutations(p)
 	//fmt.Println("Symmetry permutations count:", count, permMap)
 	//fmt.Println("Permutation map:", permMap)
+	// Every symmetric value of the clone, each pointer once.
+	var symVals []*lib.SymmetricValue
+	seen := make(map[*lib.SymmetricValue]bool)
+	for _, val := range refs {
+		if sv, ok := val.(*lib.SymmetricValue); ok && !seen[sv] {
+			seen[sv] = true
+			symVals = append(symVals, sv)
+		}
+	}
+	origIds := make([]int64, len(symVals))
 	hashes := make([]string, count)
 	for i := 0; i < count; i++ {
-		hashes[i] = p2.symmetricHashWithoutClone(refs, permMap, i)
+		hashes[i] = p2.symmetricHashWithoutClone(symVals, origIds, permMap, i)
 	}
 	// Print unique hashes
 	uniqueHashes := make(map[string]bool)
@@ -3272,7 +3282,10 @@ func (p *Process) symmetricHash(permutations map[*lib.SymmetricValue][]*lib.Symm
 	p2 := p.CloneWithRefs(permutations, alt, refs)
 	return p2.HashCode()
 }
-func (p *Process) symmetricHashWithoutClone(refs map[starlark.Value]starlark.Value, permutations map[*lib.SymmetricValue][]*lib.SymmetricValue, alt int) string {
+// symmetricHashWithoutClone hashes p as permutation alt renames it. symVals
+// are p's symmetric values, which are renamed in place for the hash and
+// then put back; origIds is scratch space of the same length.
+func (p *Process) symmetricHashWithoutClone(symVals []*lib.SymmetricValue, origIds []int64, permutations map[*lib.SymmetricValue][]*lib.SymmetricValue, alt int) string {
 
 	// 1. Build refMappings (Prefix -> OldID -> NewID)
 	// This helps us apply the permutation to all instances of SymmetricValue/Role,
@@ -3288,69 +3301,38 @@ func (p *Process) symmetricHashWithoutClone(refs map[starlark.Value]starlark.Val
 		refMappings[prefix][oldRef] = newRef
 	}
 
-	// 2. Iterate refs to find ALL SymmetricValue and Role pointers, and mutate them if they have a mapping.
-	// We track original values to restore them later.
-	origSymVals := make(map[*lib.SymmetricValue]int64)
-
-	// Helper to mutate SymmetricValue
-	mutateSymValue := func(sv *lib.SymmetricValue) {
-		if mapping, ok := refMappings[sv.GetPrefix()]; ok {
-			if newId, found := mapping[sv.GetId()]; found {
-				if _, recorded := origSymVals[sv]; !recorded {
-					origSymVals[sv] = sv.GetId()
-					sv.SetId(newId)
-				}
-			}
+	// 2. Rename every symmetric value that has a mapping, keeping its id to
+	// put back later.
+	for i, sv := range symVals {
+		origIds[i] = sv.GetId()
+		if newId, found := refMappings[sv.GetPrefix()][sv.GetId()]; found {
+			sv.SetId(newId)
 		}
 	}
 
-	// Iterate over all values in refs (which contains all reachable objects from the clone)
-	for _, val := range refs {
-		if sv, ok := val.(*lib.SymmetricValue); ok {
-			mutateSymValue(sv)
-		}
-	}
-
-	// 3. (Removed explicit Role mutation loop as Roles now hold the same SymmetricValue pointers)
-
-	// 3b. Repair Starlark Dicts
-	// Since we mutated SymmetricValues in-place, any Starlark Dicts using them as keys
-	// are now corrupted (keys in wrong hash buckets). We must re-insert entries.
-	var dictsToRepair []*starlark.Dict
-	for _, val := range refs {
-		if d, ok := val.(*starlark.Dict); ok {
-			dictsToRepair = append(dictsToRepair, d)
-		}
-	}
-	repairDicts := func() {
-		for _, d := range dictsToRepair {
-			items := d.Items()
-			d.Clear()
-			for _, item := range items {
-				d.SetKey(item[0], item[1])
-			}
-		}
-	}
-	repairDicts()
+	// 3. Dicts and sets keyed by a mutated value now hold it in the wrong
+	// hash bucket. That is left as it is: hashing only walks their entries
+	// in insertion order, never looks one up, and step 7 puts the ids back.
 
 	// 4. Update ChannelMessage receivers (String update)
 	// We construct a replacement map for strings "Name#OldID" -> "Name#NewID"
-	replacements := make(map[string]string)
-	for prefix, mapping := range refMappings {
-		for oldRef, newRef := range mapping {
-			// Role.RefStringShort is "Name#Ref"
-			oldStr := fmt.Sprintf("%s#%d", prefix, oldRef)
-			newStr := fmt.Sprintf("%s#%d", prefix, newRef)
-			replacements[oldStr] = newStr
-		}
-	}
-
 	origReceivers := make(map[*ChannelMessage]string)
-	for _, msgs := range p.ChannelMessages {
-		for _, msg := range msgs {
-			if newReceiver, ok := replacements[msg.receiver]; ok {
-				origReceivers[msg] = msg.receiver
-				msg.receiver = newReceiver
+	if len(p.ChannelMessages) > 0 {
+		replacements := make(map[string]string)
+		for prefix, mapping := range refMappings {
+			for oldRef, newRef := range mapping {
+				// Role.RefStringShort is "Name#Ref"
+				oldStr := fmt.Sprintf("%s#%d", prefix, oldRef)
+				newStr := fmt.Sprintf("%s#%d", prefix, newRef)
+				replacements[oldStr] = newStr
+			}
+		}
+		for _, msgs := range p.ChannelMessages {
+			for _, msg := range msgs {
+				if newReceiver, ok := replacements[msg.receiver]; ok {
+					origReceivers[msg] = msg.receiver
+					msg.receiver = newReceiver
+				}
 			}
 		}
 	}
@@ -3378,13 +3360,10 @@ func (p *Process) symmetricHashWithoutClone(refs map[starlark.Value]starlark.Val
 	for msg, oldReceiver := range origReceivers {
 		msg.receiver = oldReceiver
 	}
-	for sv, oldId := range origSymVals {
-		sv.SetId(oldId)
+	for i, sv := range symVals {
+		sv.SetId(origIds[i])
 	}
 	// No need to restore explicit Role refs
-
-	// Repair Dicts again to restore original state validity
-	repairDicts()
 
 	return hash1
 
