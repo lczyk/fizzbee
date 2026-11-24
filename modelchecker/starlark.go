@@ -19,6 +19,7 @@ func (e *Evaluator) EvalPyExpr(filename string, src interface{}, prevState starl
 func (e *Evaluator) EvalPyExprWithContext(filename string, src interface{}, prevState starlark.StringDict, symCtx *lib.SymmetryContext) (starlark.Value, error) {
 	thread := newEvalThread(symCtx)
 	value, err := starlark.EvalOptions(e.options, thread, filename, src, prevState)
+	releaseEvalThread(thread)
 	if err != nil {
 		if !lib.IsDisableTransitionError(err) {
 			glog.Errorf("Error evaluating expr: %+v", err)
@@ -40,7 +41,9 @@ func (e *Evaluator) EvalExprWithContext(filename string, expr *ast.Expr, prevSta
 		for i, name := range c.params {
 			args[i] = prevState[name]
 		}
-		v, err := starlark.Call(newEvalThread(symCtx), c.fn, args, nil)
+		thread := newEvalThread(symCtx)
+		v, err := starlark.Call(thread, c.fn, args, nil)
+		releaseEvalThread(thread)
 		if err != nil && !lib.IsDisableTransitionError(err) {
 			glog.Errorf("Error evaluating expr: %+v", err)
 		}
@@ -62,6 +65,7 @@ func (e *Evaluator) evalExprProgram(filename string, expr *ast.Expr, prevState s
 	}
 	thread := newEvalThread(symCtx)
 	globals, err := prog.Init(thread, prevState)
+	releaseEvalThread(thread)
 	if err != nil {
 		if !lib.IsDisableTransitionError(err) {
 			glog.Errorf("Error evaluating expr: %+v", err)
@@ -71,24 +75,46 @@ func (e *Evaluator) evalExprProgram(filename string, expr *ast.Expr, prevState s
 	return globals[exprResultName], nil
 }
 
-func newEvalThread(symCtx *lib.SymmetryContext) *starlark.Thread {
-	thread := &starlark.Thread{
+// evalThreads holds the threads no evaluation is running on. A statement
+// or expression runs once per state, and a new thread with its locals map
+// for each was a sizeable share of what the checker allocates.
+var evalThreads = sync.Pool{New: func() any {
+	return &starlark.Thread{
 		Print: func(_ *starlark.Thread, msg string) { fmt.Println(msg) },
 	}
-	// Inject symmetry context if provided
+}}
+
+// newEvalThread returns a thread whose locals are those of symCtx. Hand it
+// back with releaseEvalThread once the evaluation has returned.
+func newEvalThread(symCtx *lib.SymmetryContext) *starlark.Thread {
+	thread := evalThreads.Get().(*starlark.Thread)
+	// Every local is set, to nil where a new thread would not have it, so
+	// that nothing is left over from the thread's last use.
+	var ctx, fizzCall, roles, channels any
 	if symCtx != nil {
-		thread.SetLocal(lib.SymmetryContextKey, symCtx)
+		ctx = symCtx
 		if symCtx.FizzCall != nil {
-			thread.SetLocal(lib.FizzCallKey, symCtx.FizzCall)
+			fizzCall = symCtx.FizzCall
 		}
 		if symCtx.Roles != nil {
-			thread.SetLocal(lib.RolesKey, symCtx.Roles)
+			roles = symCtx.Roles
 		}
 		if symCtx.Channels != nil {
-			thread.SetLocal(lib.ChannelsKey, symCtx.Channels)
+			channels = symCtx.Channels
 		}
 	}
+	thread.SetLocal(lib.SymmetryContextKey, ctx)
+	thread.SetLocal(lib.FizzCallKey, fizzCall)
+	thread.SetLocal(lib.RolesKey, roles)
+	thread.SetLocal(lib.ChannelsKey, channels)
 	return thread
+}
+
+// releaseEvalThread makes thread available to the next evaluation. It is
+// not called when the evaluation panics: the thread is then in an unknown
+// state and is left to the garbage collector.
+func releaseEvalThread(thread *starlark.Thread) {
+	evalThreads.Put(thread)
 }
 
 // exprResultName is the module global that holds an expression's value in
@@ -192,7 +218,10 @@ func (e *Evaluator) ExecPyStmt(filename string, stmt *ast.PyStmt, prevState star
 func (e *Evaluator) ExecPyStmtWithContext(filename string, stmt *ast.PyStmt, prevState starlark.StringDict, symCtx *lib.SymmetryContext) (bool, error) {
 	start := stmt.GetSourceInfo().GetStart()
 	if c := e.compiledStmt(filename, stmt.Code, start.GetLine(), start.GetColumn(), prevState); c != nil {
-		return c.exec(newEvalThread(symCtx), prevState)
+		thread := newEvalThread(symCtx)
+		ok, err := c.exec(thread, prevState)
+		releaseEvalThread(thread)
+		return ok, err
 	}
 	return e.execPyStmtREPL(filename, stmt, prevState, symCtx)
 }
@@ -213,6 +242,7 @@ func (e *Evaluator) execPyStmtREPL(filename string, stmt *ast.PyStmt, prevState 
 	}
 	thread := newEvalThread(symCtx)
 	err = starlark.ExecREPLChunk(f, thread, prevState)
+	releaseEvalThread(thread)
 	globals := prevState
 	//state, err := starlark.ExecFileOptions(e.options, e.thread, filename, starCode, prevState)
 	if err != nil {
