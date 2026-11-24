@@ -173,6 +173,12 @@ func GenerateRefString(name string, ref int64) string {
 	return fmt.Sprintf("role %s#%d", name, ref)
 }
 
+// SameRef reports whether r and other are the same role instance: what
+// comparing their RefStringShort would say, without building the strings.
+func (r *Role) SameRef(other *Role) bool {
+	return r.Name == other.Name && r.GetRef() == other.GetRef()
+}
+
 func (r *Role) RefStringShort() string {
 	return fmt.Sprintf("%s#%d", r.Name, r.GetRef())
 }

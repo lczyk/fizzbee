@@ -54,6 +54,9 @@ import (
 // threads, so that the limit is enforced exactly. Otherwise MANY (-1)
 // under any of them, or a MANY global max_concurrent_actions, groups them.
 func (p *Processor) cappedCopies(action string, role *lib.Role) bool {
+	if len(p.config.ActionOptions) == 0 {
+		return p.config.GetOptions().GetMaxConcurrentActions() < 0
+	}
 	keys := []string{action}
 	if role != nil {
 		keys = []string{role.Name + "." + action, role.Name + "#." + action, role.RefStringShort() + "." + action}

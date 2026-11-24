@@ -1514,6 +1514,9 @@ type Processor struct {
 	// usesSymmetry caches specUsesSymmetry's answer once it is true; nil
 	// or false means ask again.
 	usesSymmetry *bool
+
+	// roleIndex maps a role name to its index in Files[0].Roles.
+	roleIndex map[string]int
 	// incrementalLiveness: when true, Start checks liveness on the closed
 	// part of the graph each time the visited count doubles, and stops at
 	// the first violation. See liveness_incremental.go. Off by default.
@@ -3822,18 +3825,20 @@ func (p *Processor) YieldNode(node *Node) {
 }
 
 func (p *Processor) scheduleRoleActions(node *Node, process *Process) {
-	roleMap := make(map[string]int)
-	for i, role := range p.Files[0].Roles {
-		roleMap[role.Name] = i
+	if p.roleIndex == nil {
+		p.roleIndex = make(map[string]int, len(p.Files[0].Roles))
+		for i, role := range p.Files[0].Roles {
+			p.roleIndex[role.Name] = i
+		}
 	}
 	for _, role := range node.Roles {
 		if role == nil {
 			continue
 		}
-		if _, ok := roleMap[role.Name]; !ok {
+		index, ok := p.roleIndex[role.Name]
+		if !ok {
 			panic("Role not found: " + role.Name)
 		}
-		index := roleMap[role.Name]
 		roleAst := p.Files[0].Roles[index]
 		for i, action := range roleAst.Actions {
 			p.scheduleAction(node, process, role, index, action, i)
@@ -3920,7 +3925,7 @@ func (p *Processor) scheduleAction(node *Node, process *Process, role *lib.Role,
 		if role != nil {
 			found := false
 			for _, r := range statProcess.Roles {
-				if r != nil && r.RefStringShort() == role.RefStringShort() {
+				if r != nil && r.SameRef(role) {
 					found = true
 					break
 				}
@@ -3943,7 +3948,7 @@ func (p *Processor) scheduleAction(node *Node, process *Process, role *lib.Role,
 	frame := thread.currentFrame()
 	if role != nil {
 		for _, r := range newNode.Roles {
-			if r != nil && r.RefStringShort() == role.RefStringShort() {
+			if r != nil && r.SameRef(role) {
 				frame.obj = r
 				break
 			}
@@ -3978,6 +3983,10 @@ func (p *Processor) scheduleAction(node *Node, process *Process, role *lib.Role,
 }
 
 func (p *Processor) ExceedsActionCountLimits(action *ast.Action, statProcess *Process, role *lib.Role) bool {
+	if len(p.config.ActionOptions) == 0 {
+		// Every limit below comes from an action's own options.
+		return false
+	}
 	actionName := action.Name
 	if role != nil {
 		actionName = role.RefStringShort() + "." + actionName
