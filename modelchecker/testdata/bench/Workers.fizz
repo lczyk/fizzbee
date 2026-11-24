@@ -1,6 +1,6 @@
 # Benchmark spec: symmetric roles handing tasks around.
-# Exercises the symmetry permutation path of state dedup: role ids live in
-# role fields, a set, a dict's keys and a list.
+# Exercises the symmetry permutation path of state dedup: the ids of the
+# symmetric roles are the keys of a dict and the members of a set.
 
 ---
 deadlock_detection: false

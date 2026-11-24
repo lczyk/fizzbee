@@ -101,6 +101,9 @@ func silenceStdout(tb testing.TB) func() {
 func runBenchSpec(tb testing.TB, file *ast.File, config *ast.StateSpaceOptions, mode benchMode) *Processor {
 	tb.Helper()
 	p := NewProcessor([]*ast.File{file}, config, false, 0, benchDataDir(), "bfs", true, nil, nil, "")
+	// Lazy forks also turn on a package-level switch, which would stay on
+	// for every run after the first lazyfork one.
+	p.SetExperimentalLazyFork(false)
 	mode.configure(p)
 	_, failed, err := p.Start()
 	if err != nil {
@@ -186,7 +189,7 @@ func benchState(tb testing.TB, name string) *Process {
 
 // BenchmarkFork measures the deep copy made for every scheduled action.
 func BenchmarkFork(b *testing.B) {
-	restore := silenceStdout(b)
+	defer silenceStdout(b)()
 	for _, name := range benchSpecs {
 		process := benchState(b, name)
 		b.Run(name, func(b *testing.B) {
@@ -196,12 +199,11 @@ func BenchmarkFork(b *testing.B) {
 			}
 		})
 	}
-	restore()
 }
 
 // BenchmarkCloneForAssert measures the copy each assertion is checked on.
 func BenchmarkCloneForAssert(b *testing.B) {
-	restore := silenceStdout(b)
+	defer silenceStdout(b)()
 	for _, name := range benchSpecs {
 		process := benchState(b, name)
 		b.Run(name, func(b *testing.B) {
@@ -211,13 +213,12 @@ func BenchmarkCloneForAssert(b *testing.B) {
 			}
 		})
 	}
-	restore()
 }
 
 // BenchmarkHashCode measures hashing a state from scratch, as dedup does
 // for every new node.
 func BenchmarkHashCode(b *testing.B) {
-	restore := silenceStdout(b)
+	defer silenceStdout(b)()
 	for _, name := range benchSpecs {
 		process := benchState(b, name)
 		b.Run(name, func(b *testing.B) {
@@ -229,13 +230,12 @@ func BenchmarkHashCode(b *testing.B) {
 			}
 		})
 	}
-	restore()
 }
 
 // BenchmarkCheckInvariants measures checking every assertion of a spec on
 // one state.
 func BenchmarkCheckInvariants(b *testing.B) {
-	restore := silenceStdout(b)
+	defer silenceStdout(b)()
 	for _, name := range benchSpecs {
 		process := benchState(b, name)
 		b.Run(name, func(b *testing.B) {
@@ -245,5 +245,4 @@ func BenchmarkCheckInvariants(b *testing.B) {
 			}
 		})
 	}
-	restore()
 }
